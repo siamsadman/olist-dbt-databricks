@@ -1,0 +1,86 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "One row per real customer (customer_unique_id), with the address from their latest order."
+    columns:
+      - name: customer_unique_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_seller
+    description: "One row per seller."
+    columns:
+      - name: seller_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_product
+    description: "One row per product, with English category names from the official translation plus the manual overrides seed."
+    columns:
+      - name: product_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_order
+    description: "One row per order; links the items fact and the payments fact."
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_date
+    description: "One row per calendar day from the first to the last order purchase date."
+    columns:
+      - name: date_key
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fact_order_items
+    description: "One row per order line item. Grain: order_id + order_item_id."
+    columns:
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_order')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_id
+      - name: seller_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_seller')
+                field: seller_id
+      - name: customer_unique_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_unique_id
+      - name: order_date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+  - name: fact_payments
+    description: "One row per payment record. Grain: order_id + payment_sequential."
+    columns:
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_order')
+                field: order_id
