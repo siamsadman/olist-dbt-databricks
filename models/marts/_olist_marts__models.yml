@@ -164,3 +164,74 @@ models:
               arguments:
                 to: ref('dim_product')
                 field: product_id
+
+  - name: fact_reviews
+    description: "One row per review_id (98,410). Reviews duplicated in the source are collapsed to one row."
+    columns:
+      - name: review_id
+        description: "Primary key of the review."
+        data_tests:
+          - unique
+          - not_null
+      - name: review_score
+        description: "Rating from 1 to 5."
+        data_tests:
+          - not_null
+
+  - name: bridge_review_order
+    description: "One row per (review, order) link (99,224). Carries delivery status and lateness for each reviewed order."
+    columns:
+      - name: review_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fact_reviews')
+                field: review_id
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_order')
+                field: order_id
+
+  - name: bridge_review_seller
+    description: "Distinct (review, seller) pairs (99,549) derived through the order-seller bridge."
+    columns:
+      - name: review_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fact_reviews')
+                field: review_id
+      - name: seller_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_seller')
+                field: seller_id
+
+  - name: bridge_review_product
+    description: "Distinct (review, product) pairs (102,172) derived through the order-product bridge."
+    columns:
+      - name: review_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fact_reviews')
+                field: review_id
+      - name: product_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_id
+
+  - name: bridge_review_category_delay
+    description: "Pre-flattened, deliberately disconnected table for the category-by-delay heatmap (98,991 rows). Built with DISTINCT, so it is smaller than the published 103,831."
+    columns:
+      - name: delay_bucket
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Not Delivered', 'On Time', '1-7 Days Late', '8-14 Days Late', '15+ Days Late']
