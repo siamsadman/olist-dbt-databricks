@@ -13,3 +13,6 @@ models:
     intermediate:
       +materialized: view
       +schema: intermediate
+
+flags:
+  send_anonymous_usage_stats: false
