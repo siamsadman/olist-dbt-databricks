@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: int_orders__delivery_status
+    description: "One row per order. Shared delivery logic: delivered flag, lateness (timestamp comparison, NULL when never delivered), days versus the estimate, and the delivered and estimated date keys. Used by fact_deliveries and bridge_review_order."
+    columns:
+      - name: order_id
+        description: "Primary key of the order."
+        data_tests:
+          - unique
+          - not_null
+      - name: is_late
+        description: "1 if delivered after the estimated delivery timestamp, 0 if on time, NULL if never delivered."

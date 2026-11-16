@@ -19,23 +19,21 @@ select
     cast(date_format(o.order_purchase_at, 'yyyyMMdd') as int)            as purchase_date_key,
     cast(date_format(o.order_approved_at, 'yyyyMMdd') as int)            as approved_date_key,
     cast(date_format(o.order_delivered_carrier_at, 'yyyyMMdd') as int)   as carrier_date_key,
-    cast(date_format(o.order_delivered_customer_at, 'yyyyMMdd') as int)  as delivered_date_key,
-    cast(date_format(o.order_estimated_delivery_at, 'yyyyMMdd') as int)  as estimated_delivery_date_key,
+    d.delivered_date_key,
+    d.estimated_delivery_date_key,
     coalesce(f.total_freight, 0)                                         as total_freight_value,
     datediff(cast(o.order_delivered_customer_at as date), cast(o.order_purchase_at as date))        as delivery_days,
     datediff(cast(o.order_approved_at as date), cast(o.order_purchase_at as date))                  as approval_days,
     datediff(cast(o.order_delivered_customer_at as date), cast(o.order_delivered_carrier_at as date)) as shipping_days,
-    datediff(cast(o.order_delivered_customer_at as date), cast(o.order_estimated_delivery_at as date)) as days_vs_estimate,
-    case when o.order_delivered_customer_at is not null then 1 else 0 end as is_delivered,
-    case
-        when o.order_delivered_customer_at is null then null
-        when o.order_delivered_customer_at > o.order_estimated_delivery_at then 1
-        else 0
-    end                                                                  as is_late,
+    d.delay_days                                                         as days_vs_estimate,
+    d.is_delivered,
+    d.is_late,
     cast(f.order_value as decimal(10,2))                                 as order_value,
     cast(f.total_weight_g as decimal(12,2))                              as total_weight_g
 from {{ ref('stg_olist__orders') }} as o
 inner join {{ ref('stg_olist__customers') }} as c
     on o.customer_id = c.customer_id
+left join {{ ref('int_orders__delivery_status') }} as d
+    on o.order_id = d.order_id
 left join item_totals as f
     on o.order_id = f.order_id

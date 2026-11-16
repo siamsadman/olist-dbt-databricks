@@ -10,3 +10,6 @@ models:
     marts:
       +materialized: table
       +schema: marts
+    intermediate:
+      +materialized: view
+      +schema: intermediate
