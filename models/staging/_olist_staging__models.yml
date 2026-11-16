@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: stg_olist__customers
+    description: "One row per customer_id (one per order), cast and renamed from the raw customers table."
+    columns:
+      - name: customer_id
+        description: "Order-level customer key; joins to orders."
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_olist__orders
+    description: "One row per order, with timestamps cast from text. Missing delivery dates are true NULLs."
+    columns:
+      - name: order_id
+        description: "Primary key of the order."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "Order-level customer key; joins to stg_olist__customers."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_olist__customers')
+                field: customer_id
+
+  - name: stg_olist__sellers
+    description: "One row per seller."
+    columns:
+      - name: seller_id
+        description: "Primary key of the seller."
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_olist__products
+    description: "One row per product, with measurements cast to integers and source spelling errors fixed."
+    columns:
+      - name: product_id
+        description: "Primary key of the product."
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_olist__product_category_translation
+    description: "Maps Portuguese category names to English."
+    columns:
+      - name: product_category_name
+        description: "Portuguese category name; unique key."
+        data_tests:
+          - unique
+          - not_null

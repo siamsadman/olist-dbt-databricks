@@ -6,5 +6,6 @@ __pycache__/
 *.pyc
 .env
 *.csv
+!seeds/*.csv
 raw_assets/
 dbt_internal_packages/
