@@ -2,12 +2,22 @@ version: 2
 
 models:
   - name: int_orders__delivery_status
-    description: "One row per order. Shared delivery logic: delivered flag, lateness (timestamp comparison, NULL when never delivered), days versus the estimate, and the delivered and estimated date keys. Used by fact_deliveries and bridge_review_order."
+    description: "One row per order (99,441). Shared delivery logic: delivered flag, lateness (timestamp comparison, NULL when never delivered), days versus the estimate, and the delivered and estimated date keys. Used by fact_deliveries and bridge_review_order so that lateness has a single definition."
     columns:
       - name: order_id
         description: "Primary key of the order."
         data_tests:
           - unique
           - not_null
+      - name: order_status
+        description: "Order status as recorded in the source system."
+      - name: delivered_date_key
+        description: "Delivery date as yyyyMMdd integer. NULL if the order was never delivered."
+      - name: estimated_delivery_date_key
+        description: "Estimated delivery date as yyyyMMdd integer."
+      - name: is_delivered
+        description: "1 if the order has a delivery date, otherwise 0. 96,476 orders are delivered."
       - name: is_late
-        description: "1 if delivered after the estimated delivery timestamp, 0 if on time, NULL if never delivered."
+        description: "1 if delivered after the estimated delivery timestamp, 0 if on time or early, NULL if never delivered (never 0 for undelivered). 7,827 orders are late."
+      - name: delay_days
+        description: "Delivery date minus estimated delivery date, in days, computed on dates (SQL Server boundary counting). Negative means early. NULL if never delivered."

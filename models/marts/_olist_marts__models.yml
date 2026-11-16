@@ -2,93 +2,204 @@ version: 2
 
 models:
   - name: dim_customer
-    description: "One row per real customer (customer_unique_id), with the address from their latest order."
+    description: "One row per real customer (customer_unique_id). Address columns come from the customer's latest order; 252 customers (0.26%) have more than one address in the source."
     columns:
       - name: customer_unique_id
+        description: "Person-level customer key. Primary key."
         data_tests:
           - unique
           - not_null
+      - name: customer_city
+        description: "City from the customer's latest order."
+      - name: customer_state
+        description: "State code from the customer's latest order."
+      - name: customer_zip_prefix
+        description: "Five-digit zip code prefix from the customer's latest order."
+
+
+
 
   - name: dim_seller
     description: "One row per seller."
     columns:
       - name: seller_id
+        description: "Primary key of the seller."
         data_tests:
           - unique
           - not_null
+      - name: seller_city
+        description: "Seller city."
+      - name: seller_state
+        description: "Seller state code."
+      - name: seller_zip_prefix
+        description: "Five-digit zip code prefix of the seller."
+
+
+
 
   - name: dim_product
     description: "One row per product, with English category names from the official translation plus the manual overrides seed."
     columns:
       - name: product_id
+        description: "Primary key of the product."
         data_tests:
           - unique
           - not_null
+      - name: category_name_pt
+        description: "Product category in Portuguese. 'Unknown' when the source has no category."
+      - name: category_name_en
+        description: "English category name from the official translation table, then the manual overrides seed. 'Unknown' for products with no category."
+      - name: product_weight_g
+        description: "Weight in grams. Missing values are filled with 0 (rule from the original project; only 2 products)."
+      - name: product_length_cm
+        description: "Length in centimetres. Missing values are filled with 0."
+      - name: product_height_cm
+        description: "Height in centimetres. Missing values are filled with 0."
+      - name: product_width_cm
+        description: "Width in centimetres. Missing values are filled with 0."
+
+
+
+
+
+
 
   - name: dim_order
     description: "One row per order; links the items fact and the payments fact."
     columns:
       - name: order_id
+        description: "Primary key of the order."
         data_tests:
           - unique
           - not_null
+      - name: order_status
+        description: "Order status as recorded in the source system."
+      - name: order_date_key
+        description: "Purchase date as yyyyMMdd integer. Joins to dim_date."
+
+
 
   - name: dim_date
-    description: "One row per calendar day from the first to the last order purchase date."
+    description: "One row per calendar day from the first order purchase date to the later of the last purchase date and the last estimated delivery date (800 days, 2016-09-04 to 2018-11-12). Shared by all three portfolio models."
     columns:
       - name: date_key
+        description: "Date as yyyyMMdd integer. Primary key."
         data_tests:
           - unique
           - not_null
+      - name: full_date
+        description: "Calendar date."
+      - name: year
+        description: "Calendar year."
+      - name: quarter
+        description: "Calendar quarter, 1 to 4."
+      - name: month
+        description: "Month number, 1 to 12."
+      - name: month_name
+        description: "Full English month name."
+      - name: day
+        description: "Day of the month."
+      - name: day_name
+        description: "Full English weekday name."
+      - name: week_of_year
+        description: "Week number that emulates SQL Server DATEPART(WEEK) with the default Sunday week start, so it can differ from ISO weeks."
+      - name: is_weekend
+        description: "1 for Saturday or Sunday, otherwise 0."
+      - name: year_month
+        description: "Year and month as yyyy-MM text."
+      - name: is_complete_month
+        description: "1 for dates up to 2018-08-31, the hard-coded cut-off inherited from the original model, otherwise 0."
+
+
+
+
+
+
+
+
+
+
+
 
   - name: fact_order_items
     description: "One row per order line item. Grain: order_id + order_item_id."
     columns:
       - name: order_id
+        description: "Order the item belongs to. Part of the grain."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_order')
                 field: order_id
       - name: product_id
+        description: "Product sold. Joins to dim_product."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_product')
                 field: product_id
       - name: seller_id
+        description: "Seller who sold the item. Joins to dim_seller."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_seller')
                 field: seller_id
       - name: customer_unique_id
+        description: "Person-level customer who placed the order. Joins to dim_customer."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_customer')
                 field: customer_unique_id
       - name: order_date_key
+        description: "Purchase date as yyyyMMdd integer. Joins to dim_date."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_date')
                 field: date_key
+      - name: order_item_id
+        description: "Line number of the item within the order. Part of the grain."
+      - name: order_status
+        description: "Order status as recorded in the source system."
+      - name: price
+        description: "Item price."
+      - name: freight_value
+        description: "Freight charged for this item."
+
+
+
+
 
   - name: fact_payments
     description: "One row per payment record. Grain: order_id + payment_sequential."
     columns:
       - name: order_id
+        description: "Order the payment belongs to. Part of the grain."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_order')
                 field: order_id
+      - name: payment_sequential
+        description: "Sequence number of the payment within the order. Part of the grain."
+      - name: payment_type
+        description: "Payment method."
+      - name: payment_installments
+        description: "Number of installments chosen."
+      - name: payment_value
+        description: "Amount paid in this payment record."
+
+
+
+
 
   - name: fact_deliveries
-    description: "One row per order. Missing delivery dates are true NULLs. Day differences are computed on dates (SQL Server boundary counting)."
+    description: "One row per order (99,441). Delivery timeline, delay measures and order totals. Missing delivery dates are true NULLs, never placeholder dates. Day differences are computed on dates, matching SQL Server DATEDIFF boundary counting."
     columns:
       - name: order_id
+        description: "Primary key of the order."
         data_tests:
           - unique
           - not_null
@@ -97,52 +208,80 @@ models:
                 to: ref('dim_order')
                 field: order_id
       - name: customer_unique_id
+        description: "Person-level customer key (one person can place several orders)."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_customer')
                 field: customer_unique_id
+      - name: order_status
+        description: "Order status as recorded in the source system."
       - name: purchase_date_key
+        description: "Purchase date as yyyyMMdd integer. Joins to dim_date."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_date')
                 field: date_key
       - name: approved_date_key
+        description: "Payment approval date as yyyyMMdd integer. NULL if never approved."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_date')
                 field: date_key
       - name: carrier_date_key
+        description: "Date the order was handed to the carrier, as yyyyMMdd integer. NULL if not yet handed over."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_date')
                 field: date_key
       - name: delivered_date_key
+        description: "Date the customer received the order, as yyyyMMdd integer. NULL if never delivered."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_date')
                 field: date_key
       - name: estimated_delivery_date_key
+        description: "Estimated delivery date as yyyyMMdd integer."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_date')
                 field: date_key
+      - name: total_freight_value
+        description: "Sum of freight over the order's items. 0 for the 775 orders that have no items."
+      - name: delivery_days
+        description: "Days from the purchase date to the delivery date, computed on dates. NULL if never delivered."
+      - name: approval_days
+        description: "Days from the purchase date to the approval date, computed on dates. NULL if never approved."
+      - name: shipping_days
+        description: "Days from the carrier handover date to the delivery date, computed on dates. NULL if either date is missing."
+      - name: days_vs_estimate
+        description: "Delivery date minus estimated delivery date, in days, computed on dates. Negative means early. NULL if never delivered. Comes from int_orders__delivery_status.delay_days."
+      - name: is_delivered
+        description: "1 if the order has a delivery date, otherwise 0."
+      - name: is_late
+        description: "1 if delivered after the estimated delivery timestamp, 0 if on time or early, NULL if never delivered (never 0 for undelivered). The comparison uses full timestamps, so a delivery later on the estimated day counts as late while days_vs_estimate can still be 0."
+      - name: order_value
+        description: "Sum of item prices for the order. NULL for the 775 orders that have no items."
+      - name: total_weight_g
+        description: "Sum of product weights in grams. A product with missing weight counts as 0 (rule inherited from dim_product). NULL for orders with no items."
 
   - name: bridge_order_seller
     description: "Many-to-many link between orders and sellers. One row per distinct order and seller pair."
     columns:
       - name: order_id
+        description: "Order. Joins to dim_order."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_order')
                 field: order_id
       - name: seller_id
+        description: "Seller who supplied at least one item in the order. Joins to dim_seller."
         data_tests:
           - relationships:
               arguments:
@@ -153,12 +292,14 @@ models:
     description: "Many-to-many link between orders and products. One row per distinct order and product pair."
     columns:
       - name: order_id
+        description: "Order. Joins to dim_order."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_order')
                 field: order_id
       - name: product_id
+        description: "Product that appears at least once in the order. Joins to dim_product."
         data_tests:
           - relationships:
               arguments:
@@ -177,11 +318,30 @@ models:
         description: "Rating from 1 to 5."
         data_tests:
           - not_null
+      - name: has_comment
+        description: "1 if the review has a comment title or a comment message, otherwise 0."
+      - name: review_comment_title
+        description: "Optional comment title written by the customer."
+      - name: review_comment_message
+        description: "Optional comment message written by the customer."
+      - name: creation_date_key
+        description: "Review creation date as yyyyMMdd integer. Joins to dim_date."
+      - name: answer_date_key
+        description: "Date the review was answered, as yyyyMMdd integer. Joins to dim_date."
+      - name: response_days
+        description: "Days from review creation to the answer, computed on dates."
+
+
+
+
+
+
 
   - name: bridge_review_order
-    description: "One row per (review, order) link (99,224). Carries delivery status and lateness for each reviewed order."
+    description: "One row per (review, order) link (99,224). A review can link to more than one order (789 reviews) and an order can have more than one review (547 orders). Carries delivery status and lateness for the reviewed order, read from int_orders__delivery_status."
     columns:
       - name: review_id
+        description: "Review identifier. Not unique here: a review linked to several orders appears once per order."
         data_tests:
           - not_null
           - relationships:
@@ -189,22 +349,43 @@ models:
                 to: ref('fact_reviews')
                 field: review_id
       - name: order_id
+        description: "Order the review refers to."
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_order')
                 field: order_id
+      - name: order_status
+        description: "Status of the reviewed order, as recorded in the source system."
+      - name: delivered_date_key
+        description: "Delivery date as yyyyMMdd integer. NULL if the order was never delivered."
+      - name: estimated_delivery_date_key
+        description: "Estimated delivery date as yyyyMMdd integer."
+      - name: is_delivered
+        description: "1 if the reviewed order has a delivery date, otherwise 0."
+      - name: is_late
+        description: "1 if delivered after the estimated delivery timestamp, 0 if on time or early, NULL if never delivered (never 0 for undelivered). Same definition as fact_deliveries, shared through int_orders__delivery_status."
+      - name: delay_days
+        description: "Delivery date minus estimated delivery date, in days, computed on dates. Negative means early. NULL if never delivered."
+      - name: customer_unique_id
+        description: "Person-level customer who placed the order. NULL if the order has no items."
+      - name: delivery_to_review_days
+        description: "Negative in 5,127 of the 99,224 rows: the review was created before the recorded delivery date, so filter or flag these before analysing review timing."
+      - name: order_value
+        description: "Sum of item prices for the order. NULL if the order has no items."
 
   - name: bridge_review_seller
     description: "Distinct (review, seller) pairs (99,549) derived through the order-seller bridge."
     columns:
       - name: review_id
+        description: "Review. Joins to fact_reviews."
         data_tests:
           - relationships:
               arguments:
                 to: ref('fact_reviews')
                 field: review_id
       - name: seller_id
+        description: "Seller of an item on a reviewed order. Joins to dim_seller. Distinct pairs only."
         data_tests:
           - relationships:
               arguments:
@@ -215,12 +396,14 @@ models:
     description: "Distinct (review, product) pairs (102,172) derived through the order-product bridge."
     columns:
       - name: review_id
+        description: "Review. Joins to fact_reviews."
         data_tests:
           - relationships:
               arguments:
                 to: ref('fact_reviews')
                 field: review_id
       - name: product_id
+        description: "Product on a reviewed order. Joins to dim_product. Distinct pairs only."
         data_tests:
           - relationships:
               arguments:
@@ -228,10 +411,17 @@ models:
                 field: product_id
 
   - name: bridge_review_category_delay
-    description: "Pre-flattened, deliberately disconnected table for the category-by-delay heatmap (98,991 rows). Built with DISTINCT, so it is smaller than the published 103,831."
+    description: "Deliberately disconnected, pre-flattened table for the category-by-delivery-outcome heatmap. One row per distinct (review, category, delay bucket) with the review score, built with DISTINCT: 98,991 rows. The published Power BI project reports 103,831 rows, which is what the same join returns without DISTINCT (duplicate rows when a review has several products in one category). Meant to have no relationships in the BI model."
     columns:
+      - name: review_id
+        description: "Review identifier."
+      - name: category_name_en
+        description: "English product category of a product on the reviewed order. 'Unknown' when the product has no category."
       - name: delay_bucket
+        description: "Delivery outcome: Not Delivered (never delivered), On Time (not late), 1-7 Days Late, 8-14 Days Late, 15+ Days Late. Late buckets use delay_days; a same-day late delivery has delay_days 0 and falls in 1-7 Days Late."
         data_tests:
           - accepted_values:
               arguments:
                 values: ['Not Delivered', 'On Time', '1-7 Days Late', '8-14 Days Late', '15+ Days Late']
+      - name: review_score
+        description: "Review score from 1 to 5."
