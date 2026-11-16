@@ -84,3 +84,83 @@ models:
               arguments:
                 to: ref('dim_order')
                 field: order_id
+
+  - name: fact_deliveries
+    description: "One row per order. Missing delivery dates are true NULLs. Day differences are computed on dates (SQL Server boundary counting)."
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_order')
+                field: order_id
+      - name: customer_unique_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_unique_id
+      - name: purchase_date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: approved_date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: carrier_date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: delivered_date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: estimated_delivery_date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+  - name: bridge_order_seller
+    description: "Many-to-many link between orders and sellers. One row per distinct order and seller pair."
+    columns:
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_order')
+                field: order_id
+      - name: seller_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_seller')
+                field: seller_id
+
+  - name: bridge_order_product
+    description: "Many-to-many link between orders and products. One row per distinct order and product pair."
+    columns:
+      - name: order_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_order')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_id

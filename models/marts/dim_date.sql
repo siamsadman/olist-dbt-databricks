@@ -2,7 +2,10 @@ with date_range as (
 
     select
         min(cast(order_purchase_at as date)) as start_date,
-        max(cast(order_purchase_at as date)) as end_date
+        greatest(
+            max(cast(order_purchase_at as date)),
+            max(cast(order_estimated_delivery_at as date))
+        ) as end_date
     from {{ ref('stg_olist__orders') }}
 
 ),
