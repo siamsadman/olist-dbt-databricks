@@ -16,3 +16,10 @@ models:
 
 flags:
   send_anonymous_usage_stats: false
+
+on-run-start:
+  - "create schema if not exists workspace.olist_dbt_marts"
+  - >
+    create or replace function workspace.olist_dbt_marts.state_row_filter(customer_state string)
+    returns boolean
+    return is_member('admins') or customer_state = 'SP'

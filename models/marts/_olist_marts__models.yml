@@ -3,6 +3,9 @@ version: 2
 models:
   - name: dim_customer
     description: "One row per real customer (customer_unique_id). Address columns come from the customer's latest order; 252 customers (0.26%) have more than one address in the source."
+    config:
+      post_hook:
+        - "alter table {{ this }} set row filter workspace.olist_dbt_marts.state_row_filter on (customer_state)"
     columns:
       - name: customer_unique_id
         description: "Person-level customer key. Primary key."
