@@ -7,3 +7,4 @@ __pycache__/
 .env
 *.csv
 raw_assets/
+dbt_internal_packages/
