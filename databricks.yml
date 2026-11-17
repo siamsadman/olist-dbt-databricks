@@ -31,3 +31,12 @@ resources:
             schema: olist_dbt
             commands:
               - dbt build
+  pipelines:
+    olist_lakeflow_pipeline:
+      name: olist_lakeflow_orders
+      serverless: true
+      catalog: workspace
+      schema: olist_lakeflow
+      libraries:
+        - file:
+            path: pipelines/olist_lakeflow/transformations/orders.sql
