@@ -1,0 +1,953 @@
+{
+  "datasets": [
+    {
+      "name": "b8a2eafb",
+      "displayName": "kpis",
+      "queryLines": [
+        "select\r\n",
+        "  (select count(*) from workspace.olist_dbt_marts.fact_deliveries) as total_orders,\r\n",
+        "  (select round(sum(price), 2) from workspace.olist_dbt_marts.fact_order_items) as total_revenue,\r\n",
+        "  (select round(sum(freight_value), 2) from workspace.olist_dbt_marts.fact_order_items) as total_freight,\r\n",
+        "  (select round(avg(review_score), 2) from workspace.olist_dbt_marts.fact_reviews) as avg_review_score,\r\n",
+        "  (select round(100 * avg(is_late), 2) from workspace.olist_dbt_marts.fact_deliveries) as late_rate_pct,\r\n",
+        "  (select round(avg(delivery_days), 2) from workspace.olist_dbt_marts.fact_deliveries) as avg_delivery_days;"
+      ],
+      "catalog": "workspace",
+      "schema": "olist_dbt_marts"
+    },
+    {
+      "name": "114a7010",
+      "displayName": "monthly_revenue",
+      "queryLines": [
+        "select\r\n",
+        "  d.year_month,\r\n",
+        "  round(sum(i.price), 2) as revenue\r\n",
+        "from workspace.olist_dbt_marts.fact_order_items i\r\n",
+        "join workspace.olist_dbt_marts.dim_date d\r\n",
+        "  on i.order_date_key = d.date_key\r\n",
+        "where d.is_complete_month = 1\r\n",
+        "group by d.year_month\r\n",
+        "order by d.year_month;"
+      ],
+      "catalog": "workspace",
+      "schema": "olist_dbt_marts"
+    },
+    {
+      "name": "88996f85",
+      "displayName": "monthly_late_rate",
+      "queryLines": [
+        "select\r\n",
+        "  d.year_month,\r\n",
+        "  round(100 * avg(f.is_late), 2) as late_rate_pct,\r\n",
+        "  count(*) as orders\r\n",
+        "from workspace.olist_dbt_marts.fact_deliveries f\r\n",
+        "join workspace.olist_dbt_marts.dim_date d\r\n",
+        "  on f.purchase_date_key = d.date_key\r\n",
+        "where d.is_complete_month = 1\r\n",
+        "group by d.year_month\r\n",
+        "having count(*) >= 100\r\n",
+        "order by d.year_month;"
+      ],
+      "catalog": "workspace",
+      "schema": "olist_dbt_marts"
+    },
+    {
+      "name": "22942f43",
+      "displayName": "score_by_delay",
+      "queryLines": [
+        "select\r\n",
+        "  delay_bucket,\r\n",
+        "  round(avg(review_score), 2) as avg_review_score,\r\n",
+        "  count(*) as review_rows\r\n",
+        "from workspace.olist_dbt_marts.bridge_review_category_delay\r\n",
+        "group by delay_bucket\r\n",
+        "order by case delay_bucket\r\n",
+        "  when 'On Time' then 1\r\n",
+        "  when '1-7 Days Late' then 2\r\n",
+        "  when '8-14 Days Late' then 3\r\n",
+        "  when '15+ Days Late' then 4\r\n",
+        "  else 5\r\n",
+        "end;"
+      ]
+    },
+    {
+      "name": "98742727",
+      "displayName": "state_delivery_vs_score",
+      "queryLines": [
+        "with delivery as (\r\n",
+        "  select\r\n",
+        "    c.customer_state,\r\n",
+        "    avg(f.delivery_days) as avg_delivery_days,\r\n",
+        "    count(*) as orders\r\n",
+        "  from workspace.olist_dbt_marts.fact_deliveries f\r\n",
+        "  join workspace.olist_dbt_marts.dim_customer c\r\n",
+        "    on f.customer_unique_id = c.customer_unique_id\r\n",
+        "  group by c.customer_state\r\n",
+        "),\r\n",
+        "reviews as (\r\n",
+        "  select\r\n",
+        "    c.customer_state,\r\n",
+        "    avg(r.review_score) as avg_review_score\r\n",
+        "  from workspace.olist_dbt_marts.bridge_review_order b\r\n",
+        "  join workspace.olist_dbt_marts.fact_reviews r\r\n",
+        "    on b.review_id = r.review_id\r\n",
+        "  join workspace.olist_dbt_marts.dim_customer c\r\n",
+        "    on b.customer_unique_id = c.customer_unique_id\r\n",
+        "  group by c.customer_state\r\n",
+        ")\r\n",
+        "select\r\n",
+        "  delivery.customer_state,\r\n",
+        "  round(delivery.avg_delivery_days, 2) as avg_delivery_days,\r\n",
+        "  round(reviews.avg_review_score, 2) as avg_review_score,\r\n",
+        "  delivery.orders\r\n",
+        "from delivery\r\n",
+        "join reviews on delivery.customer_state = reviews.customer_state\r\n",
+        "order by delivery.avg_delivery_days;"
+      ],
+      "catalog": "workspace",
+      "schema": "olist_dbt_marts"
+    },
+    {
+      "name": "8089357c",
+      "displayName": "payment_mix",
+      "queryLines": [
+        "select\r\n",
+        "  payment_type,\r\n",
+        "  round(sum(payment_value), 2) as payment_value,\r\n",
+        "  count(distinct order_id) as orders\r\n",
+        "from workspace.olist_dbt_marts.fact_payments\r\n",
+        "where payment_type <> 'not_defined'\r\n",
+        "group by payment_type\r\n",
+        "order by payment_value desc;"
+      ],
+      "catalog": "workspace",
+      "schema": "olist_dbt_marts"
+    }
+  ],
+  "pages": [
+    {
+      "name": "c31a83f8",
+      "displayName": "Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "total-orders",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "b8a2eafb",
+                  "fields": [
+                    {
+                      "name": "sum(total_orders)",
+                      "expression": "SUM(`total_orders`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": {
+                  "value": "<span style=\"font-size:14px\">Total orders</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(total_orders)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "f076229c",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "b8a2eafb",
+                  "fields": [
+                    {
+                      "name": "sum(total_revenue)",
+                      "expression": "SUM(`total_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Total revenue (item price, BRL)</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(total_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "fb82dd77",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "b8a2eafb",
+                  "fields": [
+                    {
+                      "name": "sum(total_freight)",
+                      "expression": "SUM(`total_freight`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Total freight (BRL)</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(total_freight)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "92d1e395",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "b8a2eafb",
+                  "fields": [
+                    {
+                      "name": "avg_review_score",
+                      "expression": "`avg_review_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Average review score (1–5)</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_review_score",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "297bb2bd",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "b8a2eafb",
+                  "fields": [
+                    {
+                      "name": "late_rate_pct",
+                      "expression": "`late_rate_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Late deliveries (% of delivered)</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "late_rate_pct",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "f94806b7",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "b8a2eafb",
+                  "fields": [
+                    {
+                      "name": "avg_delivery_days",
+                      "expression": "`avg_delivery_days`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Average delivery time (days)</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_delivery_days",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "revenue-by-month-complete-months-only-brl",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "114a7010",
+                  "fields": [
+                    {
+                      "name": "year_month",
+                      "expression": "`year_month`"
+                    },
+                    {
+                      "name": "sum(revenue)",
+                      "expression": "SUM(`revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"font-size:14px\">Revenue by month</span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "(complete months only, BRL)",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "year_month",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(revenue)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "delivery-time-vs-review-score-by-customer-state-orders",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "98742727",
+                  "fields": [
+                    {
+                      "name": "customer_state",
+                      "expression": "`customer_state`"
+                    },
+                    {
+                      "name": "orders",
+                      "expression": "`orders`"
+                    },
+                    {
+                      "name": "avg_delivery_days",
+                      "expression": "`avg_delivery_days`"
+                    },
+                    {
+                      "name": "avg_review_score",
+                      "expression": "`avg_review_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Delivery time vs review score by customer state (bubble size = orders)</span>",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  }
+                ]
+              },
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "avg_delivery_days",
+                  "displayName": "Avg. Delivery Days",
+                  "scale": {
+                    "type": "quantitative",
+                    "domain": {
+                      "type": "custom",
+                      "min": 8,
+                      "max": 30
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "avg_review_score",
+                  "displayName": "Avg. Review Score (1-5)",
+                  "scale": {
+                    "type": "quantitative",
+                    "domain": {
+                      "type": "custom",
+                      "min": 3.5,
+                      "max": 4.3
+                    }
+                  }
+                },
+                "size": {
+                  "fieldName": "orders",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "No. of Orders"
+                },
+                "extra": [
+                  {
+                    "fieldName": "customer_state",
+                    "displayName": "Customer State"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 8,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "payment-value-by-payment-type-brl",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8089357c",
+                  "fields": [
+                    {
+                      "name": "payment_value",
+                      "expression": "`payment_value`"
+                    },
+                    {
+                      "name": "payment_type",
+                      "expression": "`payment_type`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Payment value by payment type (BRL)</span>",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "payment_value",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Payment Value"
+                },
+                "color": {
+                  "fieldName": "payment_type",
+                  "legend": {
+                    "position": "right"
+                  },
+                  "displayName": "Payment Type",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": []
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 7,
+            "width": 4,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "late-deliveries-by-purchase-month",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "88996f85",
+                  "fields": [
+                    {
+                      "name": "year_month",
+                      "expression": "`year_month`"
+                    },
+                    {
+                      "name": "late_rate_pct",
+                      "expression": "`late_rate_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Late deliveries by purchase month</span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "(% of delivered orders; months with 100+ orders)",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "mark": {
+                "lineShape": "smooth",
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  }
+                ]
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "year_month",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "late_rate_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 4,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "average-review-score",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "22942f43",
+                  "fields": [
+                    {
+                      "name": "avg_review_score",
+                      "expression": "`avg_review_score`"
+                    },
+                    {
+                      "name": "delay_bucket",
+                      "expression": "`delay_bucket`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"font-size: 14px;\">Average review score</span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "by delivery delay",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  }
+                ]
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "avg_review_score",
+                  "displayName": "Average review score (1–5)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "delay_bucket",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "Not Delivered",
+                        "15+ Days Late",
+                        "8-14 Days Late",
+                        "1-7 Days Late",
+                        "On Time"
+                      ]
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 2,
+            "width": 4,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "a3924a4c",
+      "displayName": "Global Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#E6E9EA",
+        "dark": "#3B5568"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#15181C"
+      },
+      "widgetBorderColor": {
+        "light": "#F3F5F6",
+        "dark": "#21292F"
+      },
+      "fontColor": {
+        "light": "#1A2127",
+        "dark": "#EEF0F2"
+      },
+      "selectionColor": {
+        "light": "#0E7AB9",
+        "dark": "#41ADEC"
+      },
+      "visualizationColors": [
+        "#A6CEE3",
+        "#1F78B4",
+        "#B2DF8A",
+        "#33A02C",
+        "#FB9A99",
+        "#E31A1C",
+        "#FDBF6F",
+        "#FF7F00",
+        "#CAB2D6",
+        "#6A3D9A",
+        "#FFFF99",
+        "#B15928"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "fontFamily": "Inter",
+      "widgetPadding": 16,
+      "widgetMargin": 8,
+      "widgetCornerRadius": 16,
+      "widgetShadow": 50,
+      "continuousGradient": {
+        "lightMode": {
+          "fromCategoricalIndex": 0
+        },
+        "darkMode": {
+          "fromCategoricalIndex": 0
+        }
+      },
+      "fontSettings": {
+        "base": {
+          "fontFamily": "Inter",
+          "fontColor": {
+            "light": "#1A2127",
+            "dark": "#EEF0F2"
+          },
+          "fontSize": 14,
+          "fontWeight": 400
+        },
+        "widgetTitle": {
+          "fontSize": 16,
+          "fontWeight": 500
+        },
+        "widgetDescription": {
+          "fontSize": 14,
+          "fontWeight": 400
+        },
+        "fieldTitle": {
+          "textCase": "TEXT_CASE_UPPERCASE",
+          "fontColor": {
+            "light": "#31373D",
+            "dark": "#D6D8DA"
+          },
+          "fontSize": 13,
+          "fontWeight": 400
+        },
+        "fieldValue": {
+          "fontColor": {
+            "light": "#31373D",
+            "dark": "#D6D8DA"
+          },
+          "fontSize": 13,
+          "fontWeight": 400
+        }
+      },
+      "gridLineColor": {
+        "light": "#D6D7D8",
+        "dark": "#3C3E42"
+      },
+      "axisLineColor": {
+        "light": "#B0B4B6",
+        "dark": "#555E64"
+      }
+    },
+    "genieSpace": {
+      "isEnabled": false,
+      "enablementMode": "DISABLED"
+    },
+    "applyModeEnabled": false
+  }
+}
