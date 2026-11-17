@@ -68,6 +68,10 @@ flowchart LR
 
 ![dbt lineage graph from the generated docs](images/lineage_graph.png)
 
+![dbt docs: columns of fact_deliveries](images/dbt_docs_columns.png)
+
+*The generated dbt docs for `fact_deliveries`: every column has a description. The sidebar shows the project totals: 25 models, 57 tests, 9 sources, 1 seed.*
+
 | Layer | Schema | Materialization | Contents |
 |---|---|---|---|
 | Raw (bronze) | `workspace.olist_raw` | tables | 9 tables, every column loaded as text — dbt does all casting and cleaning |
@@ -96,6 +100,10 @@ flowchart LR
 | 775 orders have no items | `order_value` and weight stay NULL in `fact_deliveries` instead of being turned into zeros |
 | Geolocation has coordinates outside Brazil (latitude -36.6 to +45.1, longitude -101.5 to +121.1) | No current mart uses the table; if one does, the points will need to be filtered or flagged |
 | 8 orders are marked `delivered` but have no delivery date | Caught by a Lakeflow expectation (see Add-on A); I had previously noted "2" because of a netted-out comparison |
+
+![Local dbt build: 85 of 85 succeeded](images/dbt_build_local.png)
+
+*A local `dbt build` on dbt v2 (2.0.11): 25 models, 57 tests, 1 seed and 2 hooks, 85 of 85 succeeded in 1 minute 35 seconds. The Databricks job runs dbt 1.12.6 and gives the same result.*
 
 ---
 
@@ -327,6 +335,8 @@ The dashboard was built by hand in the Databricks dashboard editor on top of the
 ├── docs/                         — generated dbt Docs v2 site, deployed on Vercel (do not edit by hand)
 └── images/
     ├── dashboard_overview.png
+    ├── dbt_docs_columns.png
+    ├── dbt_build_local.png
     ├── lineage_graph.png
     ├── job_run_success.png
     ├── lakeflow_pipeline.png
