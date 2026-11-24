@@ -115,7 +115,7 @@ Each mart was compared with the numbers in the original project READMEs and SQL 
 |---|---|
 | `fact_order_items` | 112,650 rows; price 13,591,643.70; freight 2,251,909.54 |
 | `fact_payments` | 103,886 rows; 16,008,872.12 |
-| `dim_customer` / `dim_seller` / `dim_product` / `dim_order` | 96,096 / 3,095 / 32,951 / 99,441 |
+| `dim_customer` / `dim_seller` / `dim_product` | 96,096 / 3,095 / 32,951 |
 | `fact_deliveries` | 99,441 rows; `is_late` 0 = 88,649, 1 = 7,827, NULL = 2,965; average delivery 12.50 days; average days vs estimate -11.88 |
 | `bridge_order_seller` / `bridge_order_product` | 100,010 / 102,425 |
 | `fact_reviews` | 98,410 rows; mean score 4.0888; 43.07% with a comment |
@@ -129,6 +129,7 @@ Each mart was compared with the numbers in the original project READMEs and SQL 
 | `bridge_review_category_delay` has **98,991 rows**, the original reports **103,831** | The published count only reproduces when the same join runs *without* `DISTINCT` (that returns exactly 103,831), although the original SQL contains `SELECT DISTINCT`. I kept `DISTINCT`: one row per review, category and delay bucket. The 215 rows above the 98,776 review-and-category pairs come from reviews linked to more than one order that land in different buckets. The original README explains the surplus as reviews spanning several categories; in my analysis most of it is duplicate rows. |
 | `bridge_review_order.is_late` | The original SQL compares dates, but the published figures (88,658 / 7,701 / 2.57 / 4.29) only reproduce with a full timestamp comparison, the same definition as `fact_deliveries` (a date comparison gives 2.27 for late orders). I used timestamps. My hypothesis, not proven, is that the SQL file is an earlier version than the one that produced the published numbers. |
 | `dim_customer` address | Taken from each customer's **latest** order; the original used an independent `MAX()` per column. 252 customers (0.26%) have more than one address in the source, so those rows may differ. |
+| `dim_order` has **99,441 rows**, the published Sales model has **98,666** | The Sales model leaves out the 775 orders with no line items. The 99,441 target came from an approximate figure (`~99,441`) in a SQL comment, not from the model. I kept every order, so `fact_deliveries` and `dim_order` agree on 99,441 orders. |
 | `dim_date` has **800 rows**, the Part 1 README says about 774 | The table spans 2016-09-04 to 2018-11-12; extending it to cover estimated delivery dates for Part 2 added 26 rows. |
 | `dim_date.week_of_year` | Emulates SQL Server's `DATEPART(WEEK)` — Sunday-first default assumed; 2017-12-31 is week 53. |
 | Spark `SUM` of `decimal(10,2)` | Returns `decimal(20,2)`. The values are identical; only the declared type is wider. |
@@ -290,7 +291,7 @@ The dashboard was built by hand in the Databricks dashboard editor on top of the
 | After adding expectations to an existing streaming table, a normal run checked nothing | A streaming table does not re-read files it has already processed, so the expectations only see new data; a full refresh was needed to check the existing file |
 | Deleting the Lakeflow pipeline in the UI did not delete its tables | I dropped `bronze_orders` and `orders_per_month` by hand before deploying the bundle's pipeline, which then rebuilt both from the two files in the volume |
 | I recorded "2 delivered orders without a delivery date" — the real number is 8 | Comparing two totals can hide offsetting differences; the Lakeflow expectation counted the rows directly and found 8 |
-| Two published numbers did not match the published SQL | I trusted the numbers I could reproduce and wrote down the difference instead of changing the data to fit |
+| Three published numbers did not match the published SQL | I trusted the numbers I could reproduce and wrote down the difference instead of changing the data to fit |
 | The intermediate layer did not exist at first | Two marts needed the same lateness rule, so I added it afterwards and re-verified every number |
 
 ---
